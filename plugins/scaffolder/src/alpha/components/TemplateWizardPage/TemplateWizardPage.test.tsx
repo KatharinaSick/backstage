@@ -34,6 +34,8 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { catalogApiMock } from '@backstage/plugin-catalog-react/testUtils';
 import { ScaffolderFormDecoratorsApi } from '../../api/types';
 import { formDecoratorsApiRef } from '../../api/ref';
+import { useTranslationRef } from '@backstage/core-plugin-api/alpha';
+import { scaffolderTranslationRef } from '../../../translation.ts';
 
 jest.mock('react-router-dom', () => {
   return {
@@ -162,10 +164,39 @@ describe('TemplateWizardPage', () => {
   });
 
   describe('scaffolder page context menu', () => {
-    it('should render if editUrl is set to url', async () => {
+    it('should not render the menu if editUrl and description are undefined', async () => {
       catalogApi.getEntityByRef.mockResolvedValue({
-        apiVersion: 'v1',
-        kind: 'service',
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
+        metadata: {
+          name: 'test',
+        },
+        spec: {
+          profile: {
+            displayName: 'BackUser',
+          },
+        },
+      });
+      const { queryByTestId } = await renderInTestApp(
+        <ApiProvider apis={apis}>
+          <SecretsContextProvider>
+            <TemplateWizardPage customFieldExtensions={[]} />,
+          </SecretsContextProvider>
+        </ApiProvider>,
+        {
+          mountedRoutes: {
+            '/create': rootRouteRef,
+          },
+        },
+      );
+
+      expect(queryByTestId('menu-button')).not.toBeInTheDocument();
+    });
+
+    it('should render the edit menu item if editUrl is set to url', async () => {
+      catalogApi.getEntityByRef.mockResolvedValue({
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
         metadata: {
           name: 'test',
           annotations: {
@@ -178,7 +209,7 @@ describe('TemplateWizardPage', () => {
           },
         },
       });
-      const { queryByTestId } = await renderInTestApp(
+      const { queryByTestId, getByTestId } = await renderInTestApp(
         <ApiProvider apis={apis}>
           <SecretsContextProvider>
             <TemplateWizardPage customFieldExtensions={[]} />,
@@ -190,24 +221,24 @@ describe('TemplateWizardPage', () => {
           },
         },
       );
-      expect(queryByTestId('menu-button')).toBeInTheDocument();
+
+      // open menu
+      fireEvent.click(getByTestId('menu-button'));
+
+      expect(queryByTestId('edit-menu-item')).toBeInTheDocument();
     });
 
-    it('should not render if editUrl is undefined', async () => {
+    it('should not render the edit menu item if editUrl is undefined', async () => {
       catalogApi.getEntityByRef.mockResolvedValue({
-        apiVersion: 'v1',
-        kind: 'service',
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
         metadata: {
           name: 'test',
+          description: 'foobar',
           // annotations are not set
         },
-        spec: {
-          profile: {
-            displayName: 'BackUser',
-          },
-        },
       });
-      const { queryByTestId } = await renderInTestApp(
+      const { queryByTestId, getByTestId } = await renderInTestApp(
         <ApiProvider apis={apis}>
           <SecretsContextProvider>
             <TemplateWizardPage customFieldExtensions={[]} />,
@@ -219,7 +250,123 @@ describe('TemplateWizardPage', () => {
           },
         },
       );
-      expect(queryByTestId('menu-button')).not.toBeInTheDocument();
+
+      // open menu
+      fireEvent.click(getByTestId('menu-button'));
+
+      expect(queryByTestId('edit-menu-item')).not.toBeInTheDocument();
     });
+
+    // it('should render "hide description" if the description is visible', async () => {
+    //   catalogApi.getEntityByRef.mockResolvedValue({
+    //     apiVersion: 'v1',
+    //     kind: 'service',
+    //     metadata: {
+    //       name: 'test',
+    //       // long description to ensure it is shown by default
+    //       description: 'More than 140 characters incoming! '.repeat(10),
+    //       // annotations are not set
+    //     },
+    //     spec: {
+    //       profile: {
+    //         displayName: 'BackUser',
+    //       },
+    //     },
+    //   });
+    //
+    //   const { queryByTestId, queryByText } = await renderInTestApp(
+    //     <ApiProvider apis={apis}>
+    //       <SecretsContextProvider>
+    //         <TemplateWizardPage customFieldExtensions={[]} />,
+    //       </SecretsContextProvider>
+    //     </ApiProvider>,
+    //     {
+    //       mountedRoutes: {
+    //         '/create': rootRouteRef,
+    //       },
+    //     },
+    //   );
+    //
+    //   // open menu
+    //   const menu = queryByTestId('menu-button');
+    //   expect(menu).toBeInTheDocument();
+    //   fireEvent.click(menu!);
+    //   //
+    //   // expect(queryByTestId('description-menu-item')).toBeInTheDocument();
+    //   // expect(queryByText("Hide Description")).toBeInTheDocument();
+    // });
+
+    // it('should render "show description" if the description is not visible', async () => {
+    //   catalogApi.getEntityByRef.mockResolvedValue({
+    //     apiVersion: 'v1',
+    //     kind: 'service',
+    //     metadata: {
+    //       name: 'test',
+    //       // short description to ensure it is hidden by default
+    //       description: 'These are less than 140 characters.',
+    //       // annotations are not set
+    //     },
+    //     spec: {
+    //       profile: {
+    //         displayName: 'BackUser',
+    //       },
+    //     },
+    //   });
+    //
+    //   const { queryByTestId, queryByText, getByTestId } = await renderInTestApp(
+    //     <ApiProvider apis={apis}>
+    //       <SecretsContextProvider>
+    //         <TemplateWizardPage customFieldExtensions={[]} />,
+    //       </SecretsContextProvider>
+    //     </ApiProvider>,
+    //     {
+    //       mountedRoutes: {
+    //         '/create': rootRouteRef,
+    //       },
+    //     },
+    //   );
+    //
+    //   // open menu
+    //   fireEvent.click(getByTestId('menu-button'));
+    //
+    //   expect(queryByTestId('description-menu-item')).toBeInTheDocument();
+    //   expect(queryByText("Show Description")).toBeInTheDocument();
+    // });
+    //
+    // it('should not render the description item if no description is set', async () => {
+    //   catalogApi.getEntityByRef.mockResolvedValue({
+    //     apiVersion: 'v1',
+    //     kind: 'service',
+    //     metadata: {
+    //       name: 'test',
+    //       annotations: {
+    //         [ANNOTATION_EDIT_URL]: 'http://localhost:3000',
+    //       },
+    //     },
+    //     spec: {
+    //       profile: {
+    //         displayName: 'BackUser',
+    //       },
+    //     },
+    //   });
+    //
+    //   const { queryByTestId, getByTestId } = await renderInTestApp(
+    //     <ApiProvider apis={apis}>
+    //       <SecretsContextProvider>
+    //         <TemplateWizardPage customFieldExtensions={[]} />,
+    //       </SecretsContextProvider>
+    //     </ApiProvider>,
+    //     {
+    //       mountedRoutes: {
+    //         '/create': rootRouteRef,
+    //       },
+    //     },
+    //   );
+    //
+    //   // open menu
+    //   fireEvent.click(getByTestId('menu-button'));
+    //
+    //   expect(queryByTestId('description-menu-item')).not.toBeInTheDocument();
+    // });
   });
 });
